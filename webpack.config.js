@@ -17,11 +17,12 @@ var CONFIG = {
     // The tags to include the generated JS and CSS will be automatically injected in the HTML template
     // See https://github.com/jantimon/html-webpack-plugin
     indexHtmlTemplate: './demo/Client/public/index.html',
-    fsharpEntry: './demo/Client/Client.fsproj',
-    fsharpSharedEntry: './demo/Shared/Shared.fsproj',
+    fsharpEntry: './demo/Client/App.fs.js',
+    //fsharpSharedEntry: './demo/Shared/Shared.fsproj',
     scssEntry: './demo/Client/scss/main.scss',
     outputDir: './bin/public',
     assetsDir: './demo/Client/public',
+    publicPath: "/",
     devServerPort: 8080,
     // When using webpack-dev-server, you may need to redirect some calls
     // to a external API server. See https://webpack.js.org/configuration/dev-server/#devserver-proxy
@@ -65,12 +66,17 @@ var commonPlugins = [
 ];
 
 module.exports = {
-    entry: {
-        app: [resolve(CONFIG.fsharpEntry), resolve(CONFIG.scssEntry), resolve(CONFIG.fsharpSharedEntry)]
-    },
+    entry:
+        isProduction ? {
+            app: [resolve(CONFIG.fsharpEntry), resolve(CONFIG.scssEntry)]
+        } : {
+            app: [resolve(CONFIG.fsharpEntry)],
+            style: [resolve(CONFIG.scssEntry)]
+        },
     // Add a hash to the output file name in production
     // to prevent browser caching if code changes
     output: {
+        //publicPath: CONFIG.publicPath,
         path: resolve(CONFIG.outputDir),
         filename: isProduction ? '[name].[hash].js' : '[name].js'
     },
@@ -95,38 +101,28 @@ module.exports = {
             new CopyWebpackPlugin([{ from: resolve(CONFIG.assetsDir) }]),
             new CleanWebpackPlugin(),
         ])
-        : commonPlugins.concat([
-            new webpack.HotModuleReplacementPlugin(),
-        ]),
+        : commonPlugins,
     resolve: {
         // See https://github.com/fable-compiler/Fable/issues/1490
         symlinks: false
     },
     // Configuration for webpack-dev-server
     devServer: {
-        contentBase: CONFIG.assetsDir,
         hot: true,
-        inline: true,
+        static: {
+            directory: resolve(CONFIG.assetsDir),
+            publicPath: CONFIG.publicPath
+        },
+        //inline: true,
         port: CONFIG.devServerPort,
         proxy: CONFIG.devServerProxy,
         historyApiFallback: true
     },
-    // - fable-loader: transforms F# into JS
     // - babel-loader: transforms JS to old syntax (compatible with old browsers)
     // - sass-loaders: transforms SASS/SCSS into JS
     // - file-loader: Moves files referenced in the code (fonts, images) into output folder
     module: {
         rules: [
-            {
-                test: /\.fs(x|proj)?$/,
-                use: {
-                    loader: 'fable-loader',
-                    options: {
-                        babel: CONFIG.babel,
-                        define: isProduction ? [] : ['DEBUG']
-                    }
-                }
-            },
             {
                 test: /\.js$/,
                 exclude: /node_modules/,
@@ -161,5 +157,5 @@ module.exports = {
 };
 
 function resolve(filePath) {
-    return path.join(__dirname, filePath);
+    return path.isAbsolute(filePath) ? filePath : path.join(__dirname, filePath);
 }

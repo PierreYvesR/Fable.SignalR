@@ -1,5 +1,8 @@
-### 0.11.6 - tbd
+### 0.12.0-alpha.2 - Monday, January 9th, 2023
 * Add .NET 6 support
+* Ensure Fable 4 Theta-018 compatible
+* Ensure Elmish 4 compatible
+* Relax some dependency versions
 
 ### 0.11.5 - Tuesday, June 29th, 2021
 * Update client side JSON serialization to remove warnings in Fable 3
