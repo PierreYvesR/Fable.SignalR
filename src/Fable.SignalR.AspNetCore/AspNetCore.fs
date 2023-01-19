@@ -12,6 +12,7 @@ module SignalRExtension =
     open Microsoft.Extensions.Hosting
     open Microsoft.Extensions.Logging
     open Newtonsoft.Json
+    open System.Threading
     open System.Collections.Generic
     open System.Threading.Tasks
     
@@ -87,7 +88,7 @@ module SignalRExtension =
         /// Adds SignalR services to the specified Microsoft.Extensions.DependencyInjection.IServiceCollection.
         member this.AddSignalR
             (settings: SignalR.Settings<'ClientApi,'ServerApi>, 
-             streamFrom: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>) =
+             streamFrom: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>) =
 
             let hubOptions = settings.Config |> Option.bind (fun s -> s.HubOptions)
             let msgPk = Option.defaultValue false (settings.Config |> Option.map (fun c -> c.UseMessagePack))
@@ -127,7 +128,7 @@ module SignalRExtension =
         /// Adds SignalR services to the specified Microsoft.Extensions.DependencyInjection.IServiceCollection.
         member this.AddSignalR
             (settings: SignalR.Settings<'ClientApi,'ServerApi>, 
-             streamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>,
+             streamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>,
              streamTo: IAsyncEnumerable<'ClientStreamToApi> -> FableHub<'ClientApi,'ServerApi> -> #Task) =
 
             let hubOptions = settings.Config |> Option.bind (fun s -> s.HubOptions)
@@ -154,7 +155,7 @@ module SignalRExtension =
             (endpoint: string,
              update: 'ClientApi -> FableHub<'ClientApi,'ServerApi> -> #Task,
              invoke: 'ClientApi -> FableHub -> Task<'ServerApi>,
-             streamFrom: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>) =
+             streamFrom: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>) =
             
             this.AddSignalR(SignalR.ConfigBuilder(endpoint, Task.toGen update, invoke).Build(), streamFrom)
         
@@ -172,7 +173,7 @@ module SignalRExtension =
             (endpoint: string,
              update: 'ClientApi -> FableHub<'ClientApi,'ServerApi> -> #Task,
              invoke: 'ClientApi -> FableHub -> Task<'ServerApi>,
-             streamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>,
+             streamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>,
              streamTo: IAsyncEnumerable<'ClientStreamToApi> -> FableHub<'ClientApi,'ServerApi> -> #Task) =
             
             this.AddSignalR(SignalR.ConfigBuilder(endpoint, Task.toGen update, invoke).Build(), streamFrom, Task.toGen streamTo)
@@ -194,7 +195,7 @@ module SignalRExtension =
             (endpoint: string,
              update: 'ClientApi -> FableHub<'ClientApi,'ServerApi> -> #Task,
              invoke: 'ClientApi -> FableHub -> Task<'ServerApi>,
-             streamFrom: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>,
+             streamFrom: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>,
              config: SignalR.ConfigBuilder<'ClientApi,'ServerApi> -> SignalR.ConfigBuilder<'ClientApi,'ServerApi>) =
 
             SignalR.ConfigBuilder(endpoint, Task.toGen update, invoke) 
@@ -218,7 +219,7 @@ module SignalRExtension =
             (endpoint: string,
              update: 'ClientApi -> FableHub<'ClientApi,'ServerApi> -> #Task,
              invoke: 'ClientApi -> FableHub -> Task<'ServerApi>,
-             streamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>,
+             streamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>,
              streamTo: IAsyncEnumerable<'ClientStreamToApi> -> FableHub<'ClientApi,'ServerApi> -> #Task,
              config: SignalR.ConfigBuilder<'ClientApi,'ServerApi> -> SignalR.ConfigBuilder<'ClientApi,'ServerApi>) =
 
@@ -276,7 +277,7 @@ module SignalRExtension =
         /// Configures routing and endpoints for the SignalR hub.
         member this.UseSignalR
             (settings: SignalR.Settings<'ClientApi,'ServerApi>, 
-             streamFrom: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> 
+             streamFrom: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> 
                 IAsyncEnumerable<'ServerStreamApi>) =
             
             let config = 
@@ -335,7 +336,7 @@ module SignalRExtension =
         /// Configures routing and endpoints for the SignalR hub.
         member this.UseSignalR
             (settings: SignalR.Settings<'ClientApi,'ServerApi>, 
-             streamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> 
+             streamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> 
                 IAsyncEnumerable<'ServerStreamApi>,
              streamTo: IAsyncEnumerable<'ClientStreamToApi> -> FableHub<'ClientApi,'ServerApi> -> #Task) =
             

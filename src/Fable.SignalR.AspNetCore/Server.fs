@@ -8,6 +8,7 @@ open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.SignalR
 open Microsoft.Extensions.DependencyInjection
 open System
+open System.Threading
 open System.Collections.Generic
 open System.ComponentModel
 open System.Threading.Tasks
@@ -85,7 +86,7 @@ type StreamFromFableHubOptions<'ClientApi,'ClientStreamApi,'ServerApi,'ServerStr
 
     { Send: 'ClientApi -> FableHub<'ClientApi,'ServerApi> -> Task
       Invoke: 'ClientApi -> FableHub -> Task<'ServerApi>
-      StreamFrom: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>
+      StreamFrom: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>
       Services: System.IServiceProvider }
 
 and [<EditorBrowsable(EditorBrowsableState.Never)>] StreamFromFableHub<'ClientApi,'ClientStreamApi,'ServerApi,'ServerStreamApi
@@ -108,7 +109,7 @@ and [<EditorBrowsable(EditorBrowsableState.Never)>] StreamFromFableHub<'ClientAp
         } :> Task
         
     member this.Send msg = settings.Send msg (this :> FableHub<'ClientApi,'ServerApi>)
-    member this.StreamFrom msg = settings.StreamFrom msg (this :> FableHub<'ClientApi,'ServerApi>)
+    member this.StreamFrom(msg, cancellationToken) = settings.StreamFrom msg (this :> FableHub<'ClientApi,'ServerApi>) cancellationToken
 
     static member AddServices (send, invoke, stream, s: IServiceCollection) =
         s.AddTransient<StreamFromFableHubOptions<'ClientApi,'ClientStreamApi,'ServerApi,'ServerStreamApi>>(
@@ -157,7 +158,7 @@ type [<EditorBrowsable(EditorBrowsableState.Never)>] StreamBothFableHubOptions<'
 
     { Send: 'ClientApi -> FableHub<'ClientApi,'ServerApi> -> Task
       Invoke: 'ClientApi -> FableHub -> Task<'ServerApi>
-      StreamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>
+      StreamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>
       StreamTo: IAsyncEnumerable<'ClientStreamToApi> -> FableHub<'ClientApi,'ServerApi> -> Task
       Services: System.IServiceProvider }
 
@@ -180,7 +181,7 @@ and [<EditorBrowsable(EditorBrowsableState.Never)>] StreamBothFableHub<'ClientAp
             do! this.Clients.Caller.Invoke({ connectionId = this.Context.ConnectionId; invocationId = invocationId; message = message })
         } :> Task
     member this.Send msg = settings.Send msg (this :> FableHub<'ClientApi,'ServerApi>)
-    member this.StreamFrom msg = settings.StreamFrom msg (this :> FableHub<'ClientApi,'ServerApi>)
+    member this.StreamFrom(msg, cancellationToken) = settings.StreamFrom msg (this :> FableHub<'ClientApi,'ServerApi>) cancellationToken
     member this.StreamTo msg = settings.StreamTo msg (this :> FableHub<'ClientApi,'ServerApi>)
 
     static member AddServices (send, invoke, streamFrom, streamTo, s: IServiceCollection) =
@@ -299,7 +300,7 @@ module FableHub =
 
                     { Send: 'ClientApi -> FableHub<'ClientApi,'ServerApi> -> Task
                       Invoke: 'ClientApi -> FableHub -> Task<'ServerApi>
-                      StreamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>
+                      StreamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>
                       StreamTo: IAsyncEnumerable<'ClientStreamToApi> -> FableHub<'ClientApi,'ServerApi> -> Task
                       OnConnected: FableHub<'ClientApi,'ServerApi> -> Task<unit>
                       Services: System.IServiceProvider }
@@ -327,7 +328,7 @@ module FableHub =
 
                     { Send: 'ClientApi -> FableHub<'ClientApi,'ServerApi> -> Task
                       Invoke: 'ClientApi -> FableHub -> Task<'ServerApi>
-                      StreamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>
+                      StreamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>
                       StreamTo: IAsyncEnumerable<'ClientStreamToApi> -> FableHub<'ClientApi,'ServerApi> -> Task
                       OnDisconnected: exn -> FableHub<'ClientApi,'ServerApi> -> Task<unit>
                       Services: System.IServiceProvider }
@@ -355,7 +356,7 @@ module FableHub =
 
                     { Send: 'ClientApi -> FableHub<'ClientApi,'ServerApi> -> Task
                       Invoke: 'ClientApi -> FableHub -> Task<'ServerApi>
-                      StreamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>
+                      StreamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>
                       StreamTo: IAsyncEnumerable<'ClientStreamToApi> -> FableHub<'ClientApi,'ServerApi> -> Task
                       OnConnected: FableHub<'ClientApi,'ServerApi> -> Task<unit>
                       OnDisconnected: exn -> FableHub<'ClientApi,'ServerApi> -> Task<unit>
@@ -389,7 +390,7 @@ module FableHub =
 
                     { Send: 'ClientApi -> FableHub<'ClientApi,'ServerApi> -> Task
                       Invoke: 'ClientApi -> FableHub -> Task<'ServerApi>
-                      Stream: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>
+                      Stream: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>
                       OnConnected: FableHub<'ClientApi,'ServerApi> -> Task<unit>
                       Services: System.IServiceProvider }
         
@@ -415,7 +416,7 @@ module FableHub =
 
                     { Send: 'ClientApi -> FableHub<'ClientApi,'ServerApi> -> Task
                       Invoke: 'ClientApi -> FableHub -> Task<'ServerApi>
-                      Stream: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>
+                      Stream: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>
                       OnDisconnected: exn -> FableHub<'ClientApi,'ServerApi> -> Task<unit>
                       Services: System.IServiceProvider }
         
@@ -441,7 +442,7 @@ module FableHub =
 
                     { Send: 'ClientApi -> FableHub<'ClientApi,'ServerApi> -> Task
                       Invoke: 'ClientApi -> FableHub -> Task<'ServerApi>
-                      Stream: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>
+                      Stream: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>
                       OnConnected: FableHub<'ClientApi,'ServerApi> -> Task<unit>
                       OnDisconnected: exn -> FableHub<'ClientApi,'ServerApi> -> Task<unit>
                       Services: System.IServiceProvider }

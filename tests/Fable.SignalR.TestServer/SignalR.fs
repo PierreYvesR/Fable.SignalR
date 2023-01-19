@@ -13,6 +13,7 @@ type RandomStringGen () =
         |> string
 
 module SignalRHub =
+    open System.Threading
     open System.Threading.Tasks
     open Fable.SignalR
     open FSharp.Control
@@ -41,7 +42,7 @@ module SignalRHub =
 
     [<RequireQualifiedAccess>]
     module Stream =
-        let sendToClient (msg: StreamFrom.Action) (_: FableHub<Action,Response>) =
+        let sendToClient (msg: StreamFrom.Action) (_: FableHub<Action,Response>) (_: CancellationToken) =
             match msg with
             | StreamFrom.Action.GenInts ->
                 asyncSeq {
@@ -59,6 +60,7 @@ module SignalRHub2 =
     open Fable.SignalR
     open FSharp.Control
     open SignalRHub
+    open System.Threading
     open System.Collections.Generic
 
     let update (msg: Action) =
@@ -84,7 +86,7 @@ module SignalRHub2 =
 
     [<RequireQualifiedAccess>]
     module Stream =
-        let sendToClient (msg: StreamFrom.Action) (_: FableHub<Action,Response>) =
+        let sendToClient (msg: StreamFrom.Action) (_: FableHub<Action,Response>) (_: CancellationToken) =
             match msg with
             | StreamFrom.Action.GenInts ->
                 asyncSeq {
