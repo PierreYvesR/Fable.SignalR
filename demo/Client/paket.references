@@ -1,9 +1,10 @@
-group Fable
+group FableDemo
 	Fable.Browser.Dom
 	Fable.Core
     Fable.Promise
     Fable.Remoting.Client
     Feliz
+    Feliz.CompilerPlugins
     Feliz.Plotly
     FSharp.Core
     Zanaptak.TypedCssClasses
