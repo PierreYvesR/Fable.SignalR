@@ -402,10 +402,11 @@ type HubConnection<'ClientApi,'ClientStreamFromApi,'ClientStreamToApi,'ServerApi
         |> fun a -> Async.Start(a, ct)
     
     /// Streams from the hub.
-    member _.StreamFrom (msg: 'ClientStreamFromApi) = 
+    member _.StreamFrom (msg: 'ClientStreamFromApi, ?cancellationToken: CancellationToken) =
+        let ct = getLinkedCT cancellationToken
         mailbox.PostAndAsyncReply <| fun reply -> 
             HubMailbox.Send <| fun () -> 
-                async { return reply.Reply(hub.StreamFrom(msg)) }
+                async { return reply.Reply(hub.StreamFrom(msg, ct)) }
 
     /// Returns an async that when invoked, starts streaming to the hub.
     member _.StreamTo (asyncEnum: IAsyncEnumerable<'ClientStreamToApi>, ?cancellationToken: CancellationToken) =
