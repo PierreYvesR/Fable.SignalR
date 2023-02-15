@@ -1,3 +1,7 @@
+### 0.12.0-alpha.4 - Saturday, January 21th, 2023
+* Add `CancellationToken` to server-streaming functions (`StreamFrom`).
+* Make `FableHubModule.Stream.Both.Both` constructor public (instead of internal) -- to fix the hub registration error in DI-container.
+
 ### 0.12.0-alpha.2 - Monday, January 9th, 2023
 * Add .NET 6 support
 * Ensure Fable 4 Theta-018 compatible
