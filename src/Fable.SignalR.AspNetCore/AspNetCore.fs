@@ -12,6 +12,7 @@ module SignalRExtension =
     open Microsoft.Extensions.Hosting
     open Microsoft.Extensions.Logging
     open Newtonsoft.Json
+    open System.Threading
     open System.Collections.Generic
     open System.Threading.Tasks
     
@@ -26,8 +27,12 @@ module SignalRExtension =
     module internal Impl =
         let [<Literal>] Ns = "Microsoft.AspNetCore.SignalR"
 
-        let config<'T, 'ClientApi,'ClientStreamFromApi,'ClientStreamToApi,'ServerApi,'ServerStreamApi when 'T :> Hub> (builder: IServiceCollection) (hubOptions: (HubOptions -> unit) option) 
-            (msgPack: bool) (builderFun: (ISignalRServerBuilder -> ISignalRServerBuilder) option) (transients: IServiceCollection -> IServiceCollection) =
+        let config<'T, 'ClientApi,'ClientStreamFromApi,'ClientStreamToApi,'ServerApi,'ServerStreamApi when 'T :> Hub>
+            (transients: IServiceCollection -> IServiceCollection)
+            (builder: IServiceCollection)
+            (hubOptions: (HubOptions -> unit) option) 
+            (msgPack: bool)
+            (builderFun: (ISignalRServerBuilder -> ISignalRServerBuilder) option) =
             
             builder.AddSignalR()
             |> fun builder ->
@@ -53,6 +58,83 @@ module SignalRExtension =
                 | None -> builder.Services
             |> transients
 
+        let noStreamHubConfig<'Hub, 'ClientApi, 'ServerApi when 'Hub :> Hub> =
+            config<'Hub, 'ClientApi, unit, unit, 'ServerApi, unit>
+
+        module OnConnected =
+            let config<'ClientApi, 'ServerApi when 'ClientApi : not struct and 'ServerApi : not struct> =
+                noStreamHubConfig<FableHub.OnConnected<'ClientApi, 'ServerApi>, 'ClientApi, 'ServerApi>
+
+        module OnDisconnected =
+            let config<'ClientApi, 'ServerApi when 'ClientApi : not struct and 'ServerApi : not struct> =
+                noStreamHubConfig<FableHub.OnDisconnected<'ClientApi, 'ServerApi>, 'ClientApi, 'ServerApi>
+
+        module Both =
+            let config<'ClientApi, 'ServerApi when 'ClientApi : not struct and 'ServerApi : not struct> =
+                noStreamHubConfig<FableHub.Both<'ClientApi, 'ServerApi>, 'ClientApi, 'ServerApi>
+
+        module Stream =
+            module From =
+                let config<'Hub, 'ClientApi,'ClientStreamApi,'ServerApi,'ServerStreamApi
+                    when 'ClientApi : not struct and 'ServerApi : not struct and 'Hub :> Hub> =
+                    config<'Hub, 'ClientApi,'ClientStreamApi, unit,'ServerApi,'ServerStreamApi>
+
+                module OnConnected =
+                    let config<'ClientApi,'ClientStreamApi,'ServerApi,'ServerStreamApi
+                        when 'ClientApi : not struct and 'ServerApi : not struct> =
+                        config<FableHub.Stream.From.OnConnected<'ClientApi,'ClientStreamApi,'ServerApi,'ServerStreamApi>, 'ClientApi,'ClientStreamApi,'ServerApi,'ServerStreamApi>
+
+                module OnDisconnected =
+                    let config<'ClientApi,'ClientStreamApi,'ServerApi,'ServerStreamApi
+                        when 'ClientApi : not struct and 'ServerApi : not struct> =
+                        config<FableHub.Stream.From.OnDisconnected<'ClientApi,'ClientStreamApi,'ServerApi,'ServerStreamApi>, 'ClientApi,'ClientStreamApi,'ServerApi,'ServerStreamApi>
+
+                module Both =
+                    let config<'ClientApi,'ClientStreamApi,'ServerApi,'ServerStreamApi
+                        when 'ClientApi : not struct and 'ServerApi : not struct> =
+                        config<FableHub.Stream.From.Both<'ClientApi,'ClientStreamApi,'ServerApi,'ServerStreamApi>, 'ClientApi,'ClientStreamApi,'ServerApi,'ServerStreamApi>
+
+            module To =
+                let config<'Hub, 'ClientApi,'ClientStreamApi,'ServerApi
+                    when 'ClientApi : not struct and 'ServerApi : not struct and 'Hub :> Hub> =
+                    config<'Hub, 'ClientApi, unit, 'ClientStreamApi,'ServerApi, unit>
+
+                module OnConnected =
+                    let config<'ClientApi,'ClientStreamApi,'ServerApi
+                        when 'ClientApi : not struct and 'ServerApi : not struct> =
+                        config<FableHub.Stream.To.OnConnected<'ClientApi,'ClientStreamApi,'ServerApi>, 'ClientApi,'ClientStreamApi,'ServerApi>
+
+                module OnDisconnected =
+                    let config<'ClientApi,'ClientStreamApi,'ServerApi
+                        when 'ClientApi : not struct and 'ServerApi : not struct> =
+                        config<FableHub.Stream.To.OnDisconnected<'ClientApi,'ClientStreamApi,'ServerApi>, 'ClientApi,'ClientStreamApi,'ServerApi>
+
+                module Both =
+                    let config<'ClientApi,'ClientStreamApi,'ServerApi
+                        when 'ClientApi : not struct and 'ServerApi : not struct> =
+                        config<FableHub.Stream.To.Both<'ClientApi,'ClientStreamApi,'ServerApi>, 'ClientApi,'ClientStreamApi,'ServerApi>
+
+            module Both =
+                let config<'Hub, 'ClientApi,'ClientStreamFromApi,'ClientStreamToApi,'ServerApi,'ServerStreamApi
+                    when 'ClientApi : not struct and 'ServerApi : not struct and 'Hub :> Hub> =
+                    config<'Hub, 'ClientApi,'ClientStreamFromApi,'ClientStreamToApi,'ServerApi,'ServerStreamApi>
+
+                module OnConnected =
+                    let config<'ClientApi,'ClientStreamFromApi,'ClientStreamToApi,'ServerApi,'ServerStreamApi
+                        when 'ClientApi : not struct and 'ServerApi : not struct> =
+                        config<FableHub.Stream.Both.OnConnected<'ClientApi,'ClientStreamFromApi,'ClientStreamToApi,'ServerApi,'ServerStreamApi>, 'ClientApi,'ClientStreamFromApi,'ClientStreamToApi,'ServerApi,'ServerStreamApi>
+
+                module OnDisconnected =
+                    let config<'ClientApi,'ClientStreamFromApi,'ClientStreamToApi,'ServerApi,'ServerStreamApi
+                        when 'ClientApi : not struct and 'ServerApi : not struct> =
+                        config<FableHub.Stream.Both.OnDisconnected<'ClientApi,'ClientStreamFromApi,'ClientStreamToApi,'ServerApi,'ServerStreamApi>, 'ClientApi,'ClientStreamFromApi,'ClientStreamToApi,'ServerApi,'ServerStreamApi>
+
+                module Both =
+                    let config<'ClientApi,'ClientStreamFromApi,'ClientStreamToApi,'ServerApi,'ServerStreamApi
+                        when 'ClientApi : not struct and 'ServerApi : not struct> =
+                        config<FableHub.Stream.Both.Both<'ClientApi,'ClientStreamFromApi,'ClientStreamToApi,'ServerApi,'ServerStreamApi>, 'ClientApi,'ClientStreamFromApi,'ClientStreamToApi,'ServerApi,'ServerStreamApi>
+
+
     type IHostBuilder with
         /// Adds a logging filter for SignalR with the given log level threshold.
         member this.SignalRLogLevel (logLevel: Microsoft.Extensions.Logging.LogLevel) =
@@ -74,35 +156,48 @@ module SignalRExtension =
             let msgPk = Option.defaultValue false (settings.Config |> Option.map (fun c -> c.UseMessagePack))
             let builderConfig = settings.Config |> Option.bind (fun s -> s.UseServerBuilder)
 
-            match settings.Config with
-            | Some { OnConnected = Some onConnect; OnDisconnected = None } ->
-                fun s -> FableHub.OnConnected.AddServices(onConnect, settings.Send, settings.Invoke, s)
-            | Some { OnConnected = None; OnDisconnected = Some onDisconnect } ->
-                fun s -> FableHub.OnDisconnected.AddServices(onDisconnect, settings.Send, settings.Invoke, s)
-            | Some { OnConnected = Some onConnect; OnDisconnected = Some onDisconnect } ->
-                fun s -> FableHub.Both.AddServices(onConnect, onDisconnect, settings.Send, settings.Invoke, s)
-            | _ -> fun s -> BaseFableHub.AddServices(settings.Send, settings.Invoke, s)
-            |> Impl.config<BaseFableHub<'ClientApi,'ServerApi>,'ClientApi,unit,unit,'ServerApi,unit> this hubOptions msgPk builderConfig
-        
+            let configure =
+                match settings.Config with
+                | Some { OnConnected = Some onConnect; OnDisconnected = None } ->
+                    fun s -> FableHub.OnConnected.AddServices(onConnect, settings.Send, settings.Invoke, s)
+                    |> Impl.OnConnected.config<'ClientApi, 'ServerApi>
+                | Some { OnConnected = None; OnDisconnected = Some onDisconnect } ->
+                    fun s -> FableHub.OnDisconnected.AddServices(onDisconnect, settings.Send, settings.Invoke, s)
+                    |> Impl.OnDisconnected.config<'ClientApi, 'ServerApi>
+                | Some { OnConnected = Some onConnect; OnDisconnected = Some onDisconnect } ->
+                    fun s -> FableHub.Both.AddServices(onConnect, onDisconnect, settings.Send, settings.Invoke, s)
+                    |> Impl.Both.config<'ClientApi, 'ServerApi>
+                | _ ->
+                    fun s -> BaseFableHub.AddServices(settings.Send, settings.Invoke, s)
+                    |> Impl.config<BaseFableHub<'ClientApi,'ServerApi>,'ClientApi,unit,unit,'ServerApi,unit>
+            
+            configure this hubOptions msgPk builderConfig
+
         /// Adds SignalR services to the specified Microsoft.Extensions.DependencyInjection.IServiceCollection.
         member this.AddSignalR
             (settings: SignalR.Settings<'ClientApi,'ServerApi>, 
-             streamFrom: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>) =
+             streamFrom: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>) =
 
             let hubOptions = settings.Config |> Option.bind (fun s -> s.HubOptions)
             let msgPk = Option.defaultValue false (settings.Config |> Option.map (fun c -> c.UseMessagePack))
             let builderConfig = settings.Config |> Option.bind (fun s -> s.UseServerBuilder)
 
-            match settings.Config with
-            | Some { OnConnected = Some onConnect; OnDisconnected = None } ->
-                fun s -> FableHub.Stream.From.OnConnected.AddServices(onConnect, settings.Send, settings.Invoke, streamFrom, s)
-            | Some { OnConnected = None; OnDisconnected = Some onDisconnect } ->
-                fun s -> FableHub.Stream.From.OnDisconnected.AddServices(onDisconnect, settings.Send, settings.Invoke, streamFrom, s)
-            | Some { OnConnected = Some onConnect; OnDisconnected = Some onDisconnect } ->
-                fun s -> FableHub.Stream.From.Both.AddServices(onConnect, onDisconnect, settings.Send, settings.Invoke, streamFrom, s)
-            | _ -> fun s -> StreamFromFableHub.AddServices(settings.Send, settings.Invoke, streamFrom, s)
-            |> Impl.config<StreamFromFableHub<'ClientApi,'ClientStreamApi,'ServerApi,'ServerStreamApi>,'ClientApi,'ClientStreamApi,unit,'ServerApi,'ServerStreamApi> 
-                this hubOptions msgPk builderConfig
+            let configure =
+                match settings.Config with
+                | Some { OnConnected = Some onConnect; OnDisconnected = None } ->
+                    fun s -> FableHub.Stream.From.OnConnected.AddServices(onConnect, settings.Send, settings.Invoke, streamFrom, s)
+                    |> Impl.Stream.From.OnConnected.config<'ClientApi,'ClientStreamApi,'ServerApi,'ServerStreamApi>
+                | Some { OnConnected = None; OnDisconnected = Some onDisconnect } ->
+                    fun s -> FableHub.Stream.From.OnDisconnected.AddServices(onDisconnect, settings.Send, settings.Invoke, streamFrom, s)
+                    |> Impl.Stream.From.OnDisconnected.config<'ClientApi,'ClientStreamApi,'ServerApi,'ServerStreamApi>
+                | Some { OnConnected = Some onConnect; OnDisconnected = Some onDisconnect } ->
+                    fun s -> FableHub.Stream.From.Both.AddServices(onConnect, onDisconnect, settings.Send, settings.Invoke, streamFrom, s)
+                    |> Impl.Stream.From.Both.config<'ClientApi,'ClientStreamApi,'ServerApi,'ServerStreamApi>
+                | _ ->
+                    fun s -> StreamFromFableHub.AddServices(settings.Send, settings.Invoke, streamFrom, s)
+                    |> Impl.config<StreamFromFableHub<'ClientApi,'ClientStreamApi,'ServerApi,'ServerStreamApi>,'ClientApi,'ClientStreamApi,unit,'ServerApi,'ServerStreamApi>
+
+            configure this hubOptions msgPk builderConfig
         
         /// Adds SignalR services to the specified Microsoft.Extensions.DependencyInjection.IServiceCollection.
         member this.AddSignalR
@@ -113,37 +208,49 @@ module SignalRExtension =
             let msgPk = Option.defaultValue false (settings.Config |> Option.map (fun c -> c.UseMessagePack))
             let builderConfig = settings.Config |> Option.bind (fun s -> s.UseServerBuilder)
 
-            match settings.Config with
-            | Some { OnConnected = Some onConnect; OnDisconnected = None } ->
-                fun s -> FableHub.Stream.To.OnConnected.AddServices(onConnect, settings.Send, settings.Invoke, Task.toGen streamTo, s)
-            | Some { OnConnected = None; OnDisconnected = Some onDisconnect } ->
-                fun s -> FableHub.Stream.To.OnDisconnected.AddServices(onDisconnect, settings.Send, settings.Invoke, Task.toGen streamTo, s)
-            | Some { OnConnected = Some onConnect; OnDisconnected = Some onDisconnect } ->
-                fun s -> FableHub.Stream.To.Both.AddServices(onConnect, onDisconnect, settings.Send, settings.Invoke, Task.toGen streamTo, s)
-            | _ -> fun s -> StreamToFableHub.AddServices(settings.Send, settings.Invoke, Task.toGen streamTo, s)
-            |> Impl.config<StreamToFableHub<'ClientApi,'ClientStreamApi,'ServerApi>,'ClientApi,unit,'ClientStreamApi,'ServerApi,unit> 
-                this hubOptions msgPk builderConfig
+            let configure =
+                match settings.Config with
+                | Some { OnConnected = Some onConnect; OnDisconnected = None } ->
+                    fun s -> FableHub.Stream.To.OnConnected.AddServices(onConnect, settings.Send, settings.Invoke, Task.toGen streamTo, s)
+                    |> Impl.Stream.To.OnConnected.config<'ClientApi, 'ClientStreamApi, 'ServerApi>
+                | Some { OnConnected = None; OnDisconnected = Some onDisconnect } ->
+                    fun s -> FableHub.Stream.To.OnDisconnected.AddServices(onDisconnect, settings.Send, settings.Invoke, Task.toGen streamTo, s)
+                    |> Impl.Stream.To.OnDisconnected.config<'ClientApi, 'ClientStreamApi, 'ServerApi>
+                | Some { OnConnected = Some onConnect; OnDisconnected = Some onDisconnect } ->
+                    fun s -> FableHub.Stream.To.Both.AddServices(onConnect, onDisconnect, settings.Send, settings.Invoke, Task.toGen streamTo, s)
+                    |> Impl.Stream.To.Both.config<'ClientApi, 'ClientStreamApi, 'ServerApi>
+                | _ ->
+                    fun s -> StreamToFableHub.AddServices(settings.Send, settings.Invoke, Task.toGen streamTo, s)
+                    |> Impl.config<StreamToFableHub<'ClientApi,'ClientStreamApi,'ServerApi>,'ClientApi,unit,'ClientStreamApi,'ServerApi,unit> 
+                    
+            configure this hubOptions msgPk builderConfig
         
         /// Adds SignalR services to the specified Microsoft.Extensions.DependencyInjection.IServiceCollection.
         member this.AddSignalR
             (settings: SignalR.Settings<'ClientApi,'ServerApi>, 
-             streamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>,
+             streamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>,
              streamTo: IAsyncEnumerable<'ClientStreamToApi> -> FableHub<'ClientApi,'ServerApi> -> #Task) =
 
             let hubOptions = settings.Config |> Option.bind (fun s -> s.HubOptions)
             let msgPk = Option.defaultValue false (settings.Config |> Option.map (fun c -> c.UseMessagePack))
             let builderConfig = settings.Config |> Option.bind (fun s -> s.UseServerBuilder)
 
-            match settings.Config with
-            | Some { OnConnected = Some onConnect; OnDisconnected = None } ->
-                fun s -> FableHub.Stream.Both.OnConnected.AddServices(onConnect, settings.Send, settings.Invoke, streamFrom, Task.toGen streamTo, s)
-            | Some { OnConnected = None; OnDisconnected = Some onDisconnect } ->
-                fun s -> FableHub.Stream.Both.OnDisconnected.AddServices(onDisconnect, settings.Send, settings.Invoke, streamFrom, Task.toGen streamTo, s)
-            | Some { OnConnected = Some onConnect; OnDisconnected = Some onDisconnect } ->
-                fun s -> FableHub.Stream.Both.Both.AddServices(onConnect, onDisconnect, settings.Send, settings.Invoke, streamFrom, Task.toGen streamTo, s)
-            | _ -> fun s -> StreamBothFableHub.AddServices(settings.Send, settings.Invoke, streamFrom, Task.toGen streamTo, s)
-            |> Impl.config<StreamBothFableHub<'ClientApi,'ClientStreamFromApi,'ClientStreamToApi,'ServerApi,'ServerStreamApi>,'ClientApi,'ClientStreamFromApi,'ClientStreamToApi,'ServerApi,'ServerStreamApi> 
-                this hubOptions msgPk builderConfig
+            let configure =
+                match settings.Config with
+                | Some { OnConnected = Some onConnect; OnDisconnected = None } ->
+                    fun s -> FableHub.Stream.Both.OnConnected.AddServices(onConnect, settings.Send, settings.Invoke, streamFrom, Task.toGen streamTo, s)
+                    |> Impl.Stream.Both.OnConnected.config<'ClientApi, 'ClientStreamFromApi, 'ClientStreamToApi, 'ServerApi, 'ServerStreamApi>
+                | Some { OnConnected = None; OnDisconnected = Some onDisconnect } ->
+                    fun s -> FableHub.Stream.Both.OnDisconnected.AddServices(onDisconnect, settings.Send, settings.Invoke, streamFrom, Task.toGen streamTo, s)
+                    |> Impl.Stream.Both.OnDisconnected.config<'ClientApi, 'ClientStreamFromApi, 'ClientStreamToApi, 'ServerApi, 'ServerStreamApi>
+                | Some { OnConnected = Some onConnect; OnDisconnected = Some onDisconnect } ->
+                    fun s -> FableHub.Stream.Both.Both.AddServices(onConnect, onDisconnect, settings.Send, settings.Invoke, streamFrom, Task.toGen streamTo, s)
+                    |> Impl.Stream.Both.Both.config<'ClientApi, 'ClientStreamFromApi, 'ClientStreamToApi, 'ServerApi, 'ServerStreamApi>
+                | _ ->
+                    fun s -> StreamBothFableHub.AddServices(settings.Send, settings.Invoke, streamFrom, Task.toGen streamTo, s)
+                    |> Impl.config<StreamBothFableHub<'ClientApi,'ClientStreamFromApi,'ClientStreamToApi,'ServerApi,'ServerStreamApi>,'ClientApi,'ClientStreamFromApi,'ClientStreamToApi,'ServerApi,'ServerStreamApi> 
+                    
+            configure this hubOptions msgPk builderConfig
         
         /// Adds SignalR services to the specified Microsoft.Extensions.DependencyInjection.IServiceCollection.
         member this.AddSignalR(endpoint: string, update: 'ClientApi -> FableHub<'ClientApi,'ServerApi> -> #Task, invoke: 'ClientApi -> FableHub -> Task<'ServerApi>) =
@@ -154,7 +261,7 @@ module SignalRExtension =
             (endpoint: string,
              update: 'ClientApi -> FableHub<'ClientApi,'ServerApi> -> #Task,
              invoke: 'ClientApi -> FableHub -> Task<'ServerApi>,
-             streamFrom: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>) =
+             streamFrom: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>) =
             
             this.AddSignalR(SignalR.ConfigBuilder(endpoint, Task.toGen update, invoke).Build(), streamFrom)
         
@@ -172,7 +279,7 @@ module SignalRExtension =
             (endpoint: string,
              update: 'ClientApi -> FableHub<'ClientApi,'ServerApi> -> #Task,
              invoke: 'ClientApi -> FableHub -> Task<'ServerApi>,
-             streamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>,
+             streamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>,
              streamTo: IAsyncEnumerable<'ClientStreamToApi> -> FableHub<'ClientApi,'ServerApi> -> #Task) =
             
             this.AddSignalR(SignalR.ConfigBuilder(endpoint, Task.toGen update, invoke).Build(), streamFrom, Task.toGen streamTo)
@@ -194,7 +301,7 @@ module SignalRExtension =
             (endpoint: string,
              update: 'ClientApi -> FableHub<'ClientApi,'ServerApi> -> #Task,
              invoke: 'ClientApi -> FableHub -> Task<'ServerApi>,
-             streamFrom: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>,
+             streamFrom: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>,
              config: SignalR.ConfigBuilder<'ClientApi,'ServerApi> -> SignalR.ConfigBuilder<'ClientApi,'ServerApi>) =
 
             SignalR.ConfigBuilder(endpoint, Task.toGen update, invoke) 
@@ -218,7 +325,7 @@ module SignalRExtension =
             (endpoint: string,
              update: 'ClientApi -> FableHub<'ClientApi,'ServerApi> -> #Task,
              invoke: 'ClientApi -> FableHub -> Task<'ServerApi>,
-             streamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>,
+             streamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>,
              streamTo: IAsyncEnumerable<'ClientStreamToApi> -> FableHub<'ClientApi,'ServerApi> -> #Task,
              config: SignalR.ConfigBuilder<'ClientApi,'ServerApi> -> SignalR.ConfigBuilder<'ClientApi,'ServerApi>) =
 
@@ -276,7 +383,7 @@ module SignalRExtension =
         /// Configures routing and endpoints for the SignalR hub.
         member this.UseSignalR
             (settings: SignalR.Settings<'ClientApi,'ServerApi>, 
-             streamFrom: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> 
+             streamFrom: 'ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> 
                 IAsyncEnumerable<'ServerStreamApi>) =
             
             let config = 
@@ -335,7 +442,7 @@ module SignalRExtension =
         /// Configures routing and endpoints for the SignalR hub.
         member this.UseSignalR
             (settings: SignalR.Settings<'ClientApi,'ServerApi>, 
-             streamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> 
+             streamFrom: 'ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> 
                 IAsyncEnumerable<'ServerStreamApi>,
              streamTo: IAsyncEnumerable<'ClientStreamToApi> -> FableHub<'ClientApi,'ServerApi> -> #Task) =
             

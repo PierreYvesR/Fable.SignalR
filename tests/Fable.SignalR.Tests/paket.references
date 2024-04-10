@@ -1,4 +1,4 @@
-﻿group Fable
+﻿group FableTests
     Fable.Browser.Dom
     Fable.Browser.Url
     Fable.Core
@@ -7,6 +7,8 @@
     Fable.Jester
     Fable.ReactTestingLibrary
     Fable.Promise
+    Fable.React
     Feliz
+    Feliz.CompilerPlugins
     Feliz.UseElmish
     FSharp.Core

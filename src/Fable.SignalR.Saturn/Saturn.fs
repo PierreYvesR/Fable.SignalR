@@ -6,6 +6,7 @@ module SignalRExtension =
     open Microsoft.AspNetCore.Builder
     open Microsoft.AspNetCore.SignalR
     open Microsoft.Extensions.Logging
+    open System.Threading
     open System.Collections.Generic
     open System.ComponentModel
     open System.Threading.Tasks
@@ -23,9 +24,9 @@ module SignalRExtension =
             type Settings<'ClientApi,'ClientStreamToApi,'ClientStreamFromApi,'ServerApi,'ServerStreamApi
                 when 'ClientApi : not struct and 'ServerApi : not struct> =
                 | HasStreamBoth of SignalR.Settings<'ClientApi,'ServerApi> * 
-                                    ('ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>) * 
+                                    ('ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>) * 
                                     (IAsyncEnumerable<'ClientStreamToApi> -> FableHub<'ClientApi,'ServerApi> -> Task)
-                | HasStreamFrom of SignalR.Settings<'ClientApi,'ServerApi> * ('ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>)
+                | HasStreamFrom of SignalR.Settings<'ClientApi,'ServerApi> * ('ClientStreamFromApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>)
                 | HasStreamTo of SignalR.Settings<'ClientApi,'ServerApi> * (IAsyncEnumerable<'ClientStreamToApi> -> FableHub<'ClientApi,'ServerApi> -> Task)
                 | NoStream of SignalR.Settings<'ClientApi,'ServerApi>
 
@@ -219,7 +220,7 @@ module SignalRExtension =
         [<CustomOperation("use_signalr")>]
         member this.UseSignalR
             (state, settings: SignalR.Settings<'ClientApi,'ServerApi> * 
-                ('ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> IAsyncEnumerable<'ServerStreamApi>) option *
+                ('ClientStreamApi -> FableHub<'ClientApi,'ServerApi> -> CancellationToken -> IAsyncEnumerable<'ServerStreamApi>) option *
                 (IAsyncEnumerable<'ClientStreamToApi> -> FableHub<'ClientApi,'ServerApi> -> Task) option) =
             
             let settings,streamFrom,streamTo = settings

@@ -1,5 +1,7 @@
 group Tooling
 	Fake.IO.FileSystem
+    Fake.Core.Process
+    Fake.Testing.Common
 	FSharp.Core
     FSharp.Json
 	FSharpLint.Core

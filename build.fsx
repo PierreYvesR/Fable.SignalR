@@ -2,9 +2,12 @@
 // FAKE build script
 // --------------------------------------------------------------------------------------
 #nowarn "0213"
+#if FAKE
 #r "paket: groupref FakeBuild //"
+#endif
 #load "./tools/FSharpLint.fs"
 #load "./tools/Web.fs"
+#load "./tools/Pnpm.fs"
 #load "./.fake/build.fsx/intellisense.fsx"
 
 open Fake.Core
@@ -163,7 +166,7 @@ Target.create "PrepDocs" ignore
 // Restore tasks
 
 let restoreSolution () =
-    DotNet.exec id "paket" "restore"
+    DotNet.exec id "paket" "restore" |> ignore
     solutionFile
     |> DotNet.restore id
 
@@ -178,6 +181,9 @@ Target.create "YarnInstall" <| fun _ ->
             }
         Yarn.install setParams
     else Yarn.install id
+
+Target.create "PnpmInstall" <| fun _ ->
+    Pnpm.install id
 
 // --------------------------------------------------------------------------------------
 // Build tasks
@@ -265,10 +271,12 @@ Target.create "PackageJson" <| fun _ ->
     Json.setJsonPkg setValues
 
 Target.create "Start" <| fun _ ->
-    Yarn.exec "start" id 
+    //Yarn.exec "start" id
+    Pnpm.exec "start" (fun ps -> { ps with WorkingDirectory = __SOURCE_DIRECTORY__ })
 
 Target.create "PublishPages" <| fun _ ->
-    Yarn.exec "publish-docs" id
+    //Yarn.exec "publish-docs" id
+    Pnpm.exec "publish-docs" id
 
 // --------------------------------------------------------------------------------------
 // Build and release NuGet targets
@@ -331,7 +339,7 @@ Target.create "CI" ignore
 "Clean"
     ==> "Restore"
     ==> "PackageJson"
-    ==> "YarnInstall"
+    ==> "PnpmInstall" // ==> "YarnInstall"
     ==> "Lint"
     ==> "Build"
     ==> "RunTests"

@@ -1,9 +1,9 @@
 ﻿namespace SignalRApp
 
 module SignalRHub =
+    open System.Threading
     open Fable.SignalR
     open FSharp.Control
-    open FSharp.Control.Tasks.V2
     open SignalRHub
     
     let update (msg: Action) =
@@ -20,7 +20,7 @@ module SignalRHub =
     
     [<RequireQualifiedAccess>]
     module Stream =
-        let sendToClient (msg: StreamFrom.Action) (hubContext: FableHub<Action,Response>) =
+        let sendToClient (msg: StreamFrom.Action) (hubContext: FableHub<Action,Response>) (_: CancellationToken) =
             match msg with
             | StreamFrom.Action.AppleStocks ->
                 Stocks.appleStocks

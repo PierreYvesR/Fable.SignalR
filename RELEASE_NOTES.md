@@ -1,5 +1,15 @@
-### 0.11.6 - tbd
+### 0.12.0-alpha.5 - Wednesday, February 15th, 2023
+* Fix incorrect FableHub configuration in `AddSignalR` extension method: all the `OnConnected`, `OnDisconnected`, `Both` hubs have been registered as the `Both` hub specified in the wildcard-case in `Config` match.
+
+### 0.12.0-alpha.4 - Saturday, January 21th, 2023
+* Add `CancellationToken` to server-streaming functions (`StreamFrom`).
+* Make `FableHubModule.Stream.Both.Both` constructor public (instead of internal) -- to fix the hub registration error in DI-container.
+
+### 0.12.0-alpha.2 - Monday, January 9th, 2023
 * Add .NET 6 support
+* Ensure Fable 4 Theta-018 compatible
+* Ensure Elmish 4 compatible
+* Relax some dependency versions
 
 ### 0.11.5 - Tuesday, June 29th, 2021
 * Update client side JSON serialization to remove warnings in Fable 3
